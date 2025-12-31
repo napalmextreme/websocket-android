@@ -1,4 +1,4 @@
-import React, {useMemo, useRef, useState} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -349,6 +349,40 @@ export function BrowserSnifferScreen() {
       return;
     }
   };
+
+  // Polling: busca conexões capturadas pelo Kotlin a cada 1s
+  useEffect(() => {
+    if (!WsRegistry) return;
+
+    const syncConnections = async () => {
+      try {
+        const conns = await WsRegistry.getConnections();
+        setConnections(prev => {
+          const next = {...prev};
+          conns.forEach((c: any) => {
+            const id = String(c.id || '');
+            const url = String(c.url || '');
+            const state = String(c.state || 'OPEN') as WsState;
+            const ts = Number(c.updatedAt || Date.now());
+            if (id && url) {
+              next[id] = {id, url, state, ts};
+            }
+          });
+          return next;
+        });
+      } catch (e) {
+        // Ignora erros de sync
+      }
+    };
+
+    // Sync inicial
+    syncConnections();
+
+    // Polling a cada 1s
+    const interval = setInterval(syncConnections, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const headerRight = useMemo(() => {
     return (
